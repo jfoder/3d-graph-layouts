@@ -1,0 +1,62 @@
+<head>
+  <style> body { margin: 0; } </style>
+
+  <script src="https://unpkg.com/three@0.136.0/build/three.js"></script>
+  <script src="https://unpkg.com/three@0.136.0/examples/js/controls/TrackballControls.js"></script>
+
+  <script src="three-forcegraph.js"></script>
+  <!--<script src="../../dist/three-forcegraph.js"></script>-->
+</head>
+
+<body>
+  <div id="3d-graph"></div>
+
+  <script>
+    // Gen random data
+    const N = 300;
+    const gData = {
+      nodes: [...Array(N).keys()].map(i => ({ id: i })),
+      links: [...Array(N).keys()]
+        .filter(id => id)
+        .map(id => ({
+          source: id,
+          target: Math.round(Math.random() * (id-1))
+        }))
+    };
+
+    const Graph = new ThreeForceGraph()
+      .graphData(gData);
+    Graph.numDimensions(3)
+
+    // Setup renderer
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('3d-graph').appendChild(renderer.domElement);
+
+    // Setup scene
+    const scene = new THREE.Scene();
+    scene.add(Graph);
+    scene.add(new THREE.AmbientLight(0xbbbbbb));
+
+    // Setup camera
+    const camera = new THREE.PerspectiveCamera();
+    camera.far = 10000;
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    camera.lookAt(Graph.position);
+    camera.position.z = Math.cbrt(N) * 180;
+
+    // Add camera controls
+    const tbControls = new THREE.TrackballControls(camera, renderer.domElement);
+
+    // Kick-off renderer
+    (function animate() { // IIFE
+      Graph.tickFrame();
+
+      // Frame cycle
+      tbControls.update();
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    })();
+  </script>
+</body>
