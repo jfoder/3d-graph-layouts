@@ -1,0 +1,96 @@
+<head>
+    <style> body {
+        margin: 0;
+    } </style>
+
+    <script src="https://unpkg.com/three@0.136.0/build/three.js"></script>
+    <script src="https://unpkg.com/three@0.136.0/examples/js/controls/TrackballControls.js"></script>
+
+    <script src="three-forcegraph.js"></script>
+    <!--<script src="../../dist/three-forcegraph.js"></script>-->
+</head>
+
+<body>
+<div id="3d-graph"></div>
+
+<script>
+    // Gen random data
+    const N = 300;
+    let gData = {nodes: [], links: []};
+    generateTreeGraph(0, 6, gData, -1);
+    console.log(gData);
+
+
+    const Graph = new ThreeForceGraph()
+        .graphData(gData)
+        .linkDirectionalArrowLength(5)
+        .linkDirectionalArrowRelPos(1);
+    Graph.numDimensions(3)
+
+    // Setup renderer
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.getElementById('3d-graph').appendChild(renderer.domElement);
+
+    // Setup scene
+    const scene = new THREE.Scene();
+    scene.add(Graph);
+    scene.add(new THREE.AmbientLight(0xbbbbbb));
+
+    // Setup camera
+    const camera = new THREE.PerspectiveCamera();
+    camera.far = 10000;
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    camera.lookAt(Graph.position);
+    camera.position.z = Math.cbrt(N) * 180;
+
+    // Add camera controls
+    const tbControls = new THREE.TrackballControls(camera, renderer.domElement);
+
+    // Kick-off renderer
+    (function animate() { // IIFE
+        Graph.tickFrame();
+
+        // Frame cycle
+        tbControls.update();
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+    })();
+
+
+    function generateTreeGraph(currentLevel, maxLevel, graph, parentId) {
+        if (typeof generateTreeGraph.currentId == 'undefined') {
+            generateTreeGraph.currentId = 0;
+        }
+
+        if (currentLevel > maxLevel) {
+            return;
+        }
+
+        let numberOfChildren = 0;
+        let rand = Math.random();
+        if (rand < 0.5) {
+            numberOfChildren = 3;
+        } else if (rand < 0.75) {
+            numberOfChildren = 2;
+        } else if (rand < 0.875) {
+            numberOfChildren = 1;
+        }
+
+        let node = {
+            id: ++(generateTreeGraph.currentId)
+        };
+        graph.nodes.push(node)
+        if (currentLevel !== 0) {
+            graph.links.push({
+                source: parentId,
+                target: node.id
+            })
+        }
+        for (let i = 1; i <= numberOfChildren; i++) {
+            generateTreeGraph(currentLevel + 1, maxLevel, graph, node.id);
+        }
+    }
+</script>
+</body>

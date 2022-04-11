@@ -7092,6 +7092,40 @@ function InsertStackElement(node, body) {
     }
   }
 
+  function setGraphTreeLayout(nodes, links) {
+    nodes.forEach(function (node) {
+      console.log(node);
+      console.log("NODE PRINTED");
+      node.x += Math.random() * 500.0;
+    });
+    var root = findRoot(nodes, links);
+    root.y += 500;
+  }
+
+  function findRoot(nodes, links) {
+    var node = nodes[0];
+
+    while (findParent(node, nodes, links) != null) {
+      node = findParent(node, nodes, links);
+    }
+
+    return node;
+  }
+
+  function findParent(node, nodes, links) {
+    links.forEach(function (link) {
+      if (link.target === node.id) {
+        nodes.forEach(function (node) {
+          if (node.id === link.source) {
+            return node;
+          }
+        });
+        return null;
+      }
+    });
+    return null;
+  }
+
   var three$1 = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists
   : {
     Group: three$2.Group,
@@ -7419,15 +7453,16 @@ function InsertStackElement(node, body) {
 
             state.onEngineStop();
           } else {
-            state.layout[isD3Sim ? 'tick' : 'step'](); // Tick it
+            setGraphTreeLayout(state.graphData.nodes, state.graphData.links); // state.layout[isD3Sim ? 'tick' : 'step'](); // Tick it
+            // state.onEngineTick();
 
-            state.onEngineTick(); // state.engineRunning = false;
-            // state.onEngineStop();
+            state.engineRunning = false;
+            state.onEngineStop();
           } // Update nodes position
 
 
           state.graphData.nodes.forEach(function (node) {
-            console.log(node);
+            // console.log(node);
             var obj = node.__threeObj;
             if (!obj) return;
             var pos = isD3Sim ? node : state.layout.getNodePosition(node[state.nodeId]);
