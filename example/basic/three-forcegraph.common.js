@@ -482,13 +482,24 @@ function getDagDepths (_ref, idAccessor) {
 }
 
 function setGraphTreeLayout(nodes, links) {
-  nodes.forEach(function (node) {
-    console.log(node);
-    console.log("NODE PRINTED");
-    node.x += Math.random() * 500.0;
-  });
+  console.log(links);
+  var currentY = 250.0;
+  var levelHeight = 50;
   var root = findRoot(nodes, links);
-  root.y += 500;
+  console.log('Root: ', root);
+  root.x = 0.0;
+  root.y = currentY;
+  root.z = 0.0;
+  var nextLevelNodes = findNextLevelNodes([root], nodes, links);
+
+  while (nextLevelNodes.length > 0) {
+    console.log(nextLevelNodes);
+    currentY -= levelHeight;
+    nextLevelNodes.forEach(function (node) {
+      node.y = currentY; // node.z = currentZ;
+    });
+    nextLevelNodes = findNextLevelNodes(nextLevelNodes, nodes, links);
+  }
 }
 
 function findRoot(nodes, links) {
@@ -505,7 +516,7 @@ function findParent(node, nodes, links) {
   links.forEach(function (link) {
     if (link.target === node.id) {
       nodes.forEach(function (node) {
-        if (node.id === link.source) {
+        if (node.id === link.source.id) {
           return node;
         }
       });
@@ -513,6 +524,32 @@ function findParent(node, nodes, links) {
     }
   });
   return null;
+}
+
+function findNextLevelNodes(parentNodes, nodes, links) {
+  var parentIds = parentNodes.map(function (node) {
+    return node.id;
+  });
+  var childIds = links.filter(function (link) {
+    return containsObject(link.source.id, parentIds);
+  }).map(function (link) {
+    return link.target.id;
+  });
+  return nodes.filter(function (node) {
+    return childIds.includes(node.id);
+  });
+}
+
+function containsObject(obj, list) {
+  var i;
+
+  for (i = 0; i < list.length; i++) {
+    if (list[i] === obj) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 var three$1 = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists

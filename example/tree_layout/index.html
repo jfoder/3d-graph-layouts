@@ -17,7 +17,7 @@
     // Gen random data
     const N = 300;
     let gData = {nodes: [], links: []};
-    generateTreeGraph(0, 6, gData, -1);
+    generateTreeGraph(0, 6, gData, -1, 'first');
     console.log(gData);
 
 
@@ -59,7 +59,7 @@
     })();
 
 
-    function generateTreeGraph(currentLevel, maxLevel, graph, parentId) {
+    function generateTreeGraph(currentLevel, maxLevel, graph, parentId, label) {
         if (typeof generateTreeGraph.currentId == 'undefined') {
             generateTreeGraph.currentId = 0;
         }
@@ -79,7 +79,8 @@
         }
 
         let node = {
-            id: ++(generateTreeGraph.currentId)
+            id: ++(generateTreeGraph.currentId),
+            label: label
         };
         graph.nodes.push(node)
         if (currentLevel !== 0) {
@@ -89,7 +90,8 @@
             })
         }
         for (let i = 1; i <= numberOfChildren; i++) {
-            generateTreeGraph(currentLevel + 1, maxLevel, graph, node.id);
+            let childLabel = Math.random() > 0.5 ? 'first' : 'second';
+            generateTreeGraph(currentLevel + 1, maxLevel, graph, node.id, childLabel);
         }
     }
 </script>
