@@ -7093,48 +7093,53 @@ function InsertStackElement(node, body) {
   }
 
   function setGraphTreeLayout(nodes, links) {
-    console.log(links);
+    var currentXLength = 200;
+    var currentX = -(currentXLength / 2.0);
     var currentY = 250.0;
     var levelHeight = 50;
     var root = findRoot(nodes, links);
-    console.log('Root: ', root);
+    var lengthMultiplier = 2.5;
     root.x = 0.0;
     root.y = currentY;
     root.z = 0.0;
     var nextLevelNodes = findNextLevelNodes([root], nodes, links);
 
-    while (nextLevelNodes.length > 0) {
-      console.log(nextLevelNodes);
+    var _loop = function _loop() {
       currentY -= levelHeight;
-      nextLevelNodes.forEach(function (node) {
-        node.y = currentY; // node.z = currentZ;
+      var groupedByParents = groupNodesByParents(nextLevelNodes, links);
+      var groupLength = currentXLength / groupedByParents.size;
+      console.log(groupedByParents);
+      groupedByParents.forEach(function (childNodes, parentNode) {
+        console.log(childNodes);
+        var distance = groupLength / childNodes.length;
+        var groupCurrentX = currentX + distance / 2.0;
+        childNodes.forEach(function (node) {
+          node.x = groupCurrentX;
+          node.y = currentY;
+          node.z = 0.0;
+          groupCurrentX += distance;
+        });
+        currentX += groupLength;
       });
+      currentXLength *= lengthMultiplier;
+      lengthMultiplier = Math.max(Math.sqrt(lengthMultiplier), 1.0);
+      currentX = -(currentXLength / 2);
       nextLevelNodes = findNextLevelNodes(nextLevelNodes, nodes, links);
+    };
+
+    while (nextLevelNodes.length > 0) {
+      _loop();
     }
   }
 
   function findRoot(nodes, links) {
     var node = nodes[0];
 
-    while (findParent(node, nodes, links) != null) {
-      node = findParent(node, nodes, links);
+    while (findParent(node, links) != null) {
+      node = findParent(node, links);
     }
 
     return node;
-  }
-
-  function findParent(node, nodes, links) {
-    links.forEach(function (link) {
-      if (link.target === node.id) {
-        nodes.forEach(function (node) {
-          if (node.id === link.source.id) {
-            return node;
-          }
-        });
-        return null;
-      }
-    });
-    return null;
   }
 
   function findNextLevelNodes(parentNodes, nodes, links) {
@@ -7161,6 +7166,32 @@ function InsertStackElement(node, body) {
     }
 
     return false;
+  }
+
+  function groupNodesByParents(nodes, links) {
+    var result = new Map();
+    nodes.forEach(function (node) {
+      var parent = findParent(node, links);
+
+      if (!result.has(parent)) {
+        result.set(parent, []);
+      }
+
+      result.get(parent).push(node);
+    });
+    return result;
+  }
+
+  function findParent(node, links) {
+    var link = links.find(function (link) {
+      return link.target.id === node.id;
+    });
+
+    if (link !== undefined) {
+      return link.source;
+    }
+
+    return null;
   }
 
   var three$1 = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists
