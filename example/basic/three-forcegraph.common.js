@@ -481,43 +481,29 @@ function getDagDepths (_ref, idAccessor) {
   }
 }
 
+//TODO: https://llimllib.github.io/pymag-trees/
 function setGraphTreeLayout(nodes, links) {
-  var currentXLength = 200;
-  var currentX = -(currentXLength / 2.0);
-  var currentY = 250.0;
-  var levelHeight = 50;
   var root = findRoot(nodes, links);
-  var lengthMultiplier = 2.5;
-  root.x = 0.0;
-  root.y = currentY;
-  root.z = 0.0;
-  var nextLevelNodes = findNextLevelNodes([root], nodes, links);
 
-  var _loop = function _loop() {
-    currentY -= levelHeight;
-    var groupedByParents = groupNodesByParents(nextLevelNodes, links);
-    var groupLength = currentXLength / groupedByParents.size;
-    console.log(groupedByParents);
-    groupedByParents.forEach(function (childNodes, parentNode) {
-      console.log(childNodes);
-      var distance = groupLength / childNodes.length;
-      var groupCurrentX = currentX + distance / 2.0;
-      childNodes.forEach(function (node) {
-        node.x = groupCurrentX;
-        node.y = currentY;
-        node.z = 0.0;
-        groupCurrentX += distance;
-      });
-      currentX += groupLength;
+  try {
+    var tree = createTreeLayoutStructure(root, null, 0, 1, nodes, links);
+    console.log(tree);
+    tree = buchheim(tree);
+    setPositions(tree);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function setPositions(tree) {
+  tree.tree.x = tree.x * 150;
+  tree.tree.y = -tree.y * 50;
+  tree.tree.z = 0.0;
+
+  if (tree.children.length > 0) {
+    tree.children.forEach(function (node) {
+      return setPositions(node);
     });
-    currentXLength *= lengthMultiplier;
-    lengthMultiplier = Math.max(Math.sqrt(lengthMultiplier), 1.0);
-    currentX = -(currentXLength / 2);
-    nextLevelNodes = findNextLevelNodes(nextLevelNodes, nodes, links);
-  };
-
-  while (nextLevelNodes.length > 0) {
-    _loop();
   }
 }
 
@@ -529,20 +515,6 @@ function findRoot(nodes, links) {
   }
 
   return node;
-}
-
-function findNextLevelNodes(parentNodes, nodes, links) {
-  var parentIds = parentNodes.map(function (node) {
-    return node.id;
-  });
-  var childIds = links.filter(function (link) {
-    return containsObject(link.source.id, parentIds);
-  }).map(function (link) {
-    return link.target.id;
-  });
-  return nodes.filter(function (node) {
-    return childIds.includes(node.id);
-  });
 }
 
 function containsObject(obj, list) {
@@ -557,20 +529,6 @@ function containsObject(obj, list) {
   return false;
 }
 
-function groupNodesByParents(nodes, links) {
-  var result = new Map();
-  nodes.forEach(function (node) {
-    var parent = findParent(node, links);
-
-    if (!result.has(parent)) {
-      result.set(parent, []);
-    }
-
-    result.get(parent).push(node);
-  });
-  return result;
-}
-
 function findParent(node, links) {
   var link = links.find(function (link) {
     return link.target.id === node.id;
@@ -581,6 +539,227 @@ function findParent(node, links) {
   }
 
   return null;
+}
+
+function createTreeLayoutStructure(tree, parent, depth, number, nodes, links) {
+  var self = {};
+  self.x = -1;
+  self.y = depth;
+  self.tree = tree;
+  var currentChildren = findChildren(tree, links);
+  self.children = [];
+
+  for (var i = 0; i < currentChildren.length; i++) {
+    self.children.push(createTreeLayoutStructure(currentChildren[i], self, depth + 1, i + 1, nodes, links));
+  }
+
+  self.parent = parent;
+  self.thread = null;
+  self.offset = 0;
+  self.ancestor = self;
+  self.change = 0;
+  self.shift = 0;
+  self.lmost_sibling = null;
+  self.number = number;
+  return self;
+}
+
+function left_brother(tree) {
+  var n = null;
+
+  if (tree.parent != null) {
+    for (var i = 0; i < tree.parent.children.length; i++) {
+      if (tree.parent.children[i] === tree) {
+        return n;
+      }
+
+      n = tree.parent.children[i];
+    }
+  }
+
+  return n;
+}
+
+function get_lmost_sibling(tree) {
+  if (tree.lmost_sibling == null && tree.parent != null && tree !== tree.parent.children[0]) {
+    tree.lmost_sibling = tree.parent.children[0];
+  }
+
+  return tree.lmost_sibling;
+}
+
+function right(tree) {
+  if (tree.thread != null) {
+    return tree.thread;
+  }
+
+  if (tree.children.length > 0) {
+    return tree.children[tree.children.length - 1];
+  }
+
+  return null;
+}
+
+function left(tree) {
+  if (tree.thread != null) {
+    return tree.thread;
+  }
+
+  if (tree.children.length > 0) {
+    return tree.children[0];
+  }
+
+  return null;
+}
+
+function buchheim(tree) {
+  var dt = firstwalk(tree);
+  second_walk(dt);
+  return dt;
+}
+
+function firstwalk(v) {
+  var distance = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 1.0;
+
+  if (v.children.length === 0) {
+    if (get_lmost_sibling(v) != null) {
+      v.x = left_brother(v).x + distance;
+    } else {
+      v.x = 0.0;
+    }
+  } else {
+    var default_ancestor = v.children[0];
+    v.children.forEach(function (w) {
+      firstwalk(w);
+      default_ancestor = apportion(w, default_ancestor, distance);
+    });
+    execute_shifts(v);
+    var midpoint = (v.children[0].x + v.children[v.children.length - 1].x) / 2.0;
+    var w = left_brother(v);
+
+    if (w != null) {
+      v.x = w.x + distance;
+      v.mod = v.x - midpoint;
+    } else {
+      v.x = midpoint;
+    }
+
+    return v;
+  }
+}
+
+function apportion(v, default_ancestor, distance) {
+  var w = left_brother(v);
+
+  if (w != null) {
+    var vir = v;
+    var vor = v;
+    var vil = w;
+    var vol = get_lmost_sibling(v);
+    var sir = v.mod;
+    var sor = v.mod;
+    var sil = vil.mod;
+    var sol = vol.mod;
+
+    if (right(vil) != null && right(vor) == null) {
+      vor.thread = right(vil);
+    } else {
+      if (left(vir) != null && left(vol) == null) {
+        vol.thread = left(vir);
+      }
+
+      default_ancestor = v;
+    }
+
+    while (right(vil) != null && left(vir) != null) {
+      vil = right(vil);
+      vir = left(vir);
+      vol = left(vol);
+      vor = right(vor);
+      vor.ancestor = v;
+      var shift = vil.x + sil - (vir.x + sir) + distance;
+
+      if (shift > 0) {
+        var a = ancestor(vil, v, default_ancestor);
+        move_subtree(a, v, shift);
+        sir = sir + shift;
+        sor = sor + shift;
+      }
+
+      sil += vil.mod;
+      sir += vir.mod;
+      sol += vol.mod;
+      sor += vor.mod;
+
+      if (right(vil) != null && right(vor) == null) {
+        vor.thread = right(vil);
+        vor.mod += sil - sor;
+      } else {
+        if (left(vir) != null && left(vol) == null) {
+          vol.thread = left(vir);
+          vol.mod += sir - sol;
+        }
+
+        default_ancestor = v;
+      }
+    }
+  }
+
+  return default_ancestor;
+}
+
+function move_subtree(wl, wr, shift) {
+  var subtrees = wr.number - wl.number;
+  wr.change -= shift / subtrees;
+  wr.shift += shift;
+  wl.change += shift / subtrees;
+  wr.x += shift;
+  wr.mod += shift;
+}
+
+function execute_shifts(v) {
+  var shift = 0.0;
+  var change = 0.0;
+
+  for (var i = v.children.length - 1; i >= 0; i--) {
+    var w = v.children[i];
+    w.x += shift;
+    w.mod += shift;
+    change += w.change;
+    shift += w.shift + change;
+  }
+}
+
+function ancestor(vil, v, default_ancestor) {
+  if (containsObject(vil.ancestor, v.parent.children)) {
+    return vil.ancestor;
+  } else {
+    return default_ancestor;
+  }
+}
+
+function second_walk(v) {
+  var m = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0.0;
+  var depth = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0.0;
+  v.x += m;
+  v.y = depth;
+  v.children.forEach(function (w) {
+    if (v.mod == null || isNaN(v.mod)) {
+      v.mod = 0.0;
+    }
+
+    second_walk(w, m + v.mod, depth + 1);
+  });
+}
+
+function findChildren(node, links) {
+  var result = [];
+  links.forEach(function (link) {
+    if (link.source.id === node.id) {
+      result.push(link.target);
+    }
+  });
+  return result;
 }
 
 var three$1 = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists
