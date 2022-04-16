@@ -478,20 +478,21 @@ function setGraphTreeLayout(nodes, links) {
     var tree = createTreeLayoutStructure(root, null, 0, 1, nodes, links);
     console.log(tree);
     tree = buchheim(tree);
-    setPositions(tree);
+    var shift = tree.x;
+    setPositions(tree, shift);
   } catch (e) {
     console.error(e);
   }
 }
 
-function setPositions(tree) {
-  tree.tree.x = tree.x * 150;
+function setPositions(tree, shift) {
+  tree.tree.x = (tree.x - shift) * 20;
   tree.tree.y = -tree.y * 50;
   tree.tree.z = 0.0;
 
   if (tree.children.length > 0) {
     tree.children.forEach(function (node) {
-      return setPositions(node);
+      return setPositions(node, shift);
     });
   }
 }
@@ -532,6 +533,7 @@ function findParent(node, links) {
 
 function createTreeLayoutStructure(tree, parent, depth, number, nodes, links) {
   var self = {};
+  self.id = tree.id;
   self.x = -1;
   self.y = depth;
   self.tree = tree;
@@ -544,7 +546,7 @@ function createTreeLayoutStructure(tree, parent, depth, number, nodes, links) {
 
   self.parent = parent;
   self.thread = null;
-  self.offset = 0;
+  self.mod = 0;
   self.ancestor = self;
   self.change = 0;
   self.shift = 0;
@@ -553,7 +555,31 @@ function createTreeLayoutStructure(tree, parent, depth, number, nodes, links) {
   return self;
 }
 
-function left_brother(tree) {
+function left(tree) {
+  if (tree.thread != null) {
+    return tree.thread;
+  }
+
+  if (tree.children.length > 0) {
+    return tree.children[0];
+  }
+
+  return null;
+}
+
+function right(tree) {
+  if (tree.thread != null) {
+    return tree.thread;
+  }
+
+  if (tree.children.length > 0) {
+    return tree.children[tree.children.length - 1];
+  }
+
+  return null;
+}
+
+function lbrother(tree) {
   var n = null;
 
   if (tree.parent != null) {
@@ -577,34 +603,22 @@ function get_lmost_sibling(tree) {
   return tree.lmost_sibling;
 }
 
-function right(tree) {
-  if (tree.thread != null) {
-    return tree.thread;
-  }
-
-  if (tree.children.length > 0) {
-    return tree.children[tree.children.length - 1];
-  }
-
-  return null;
-}
-
-function left(tree) {
-  if (tree.thread != null) {
-    return tree.thread;
-  }
-
-  if (tree.children.length > 0) {
-    return tree.children[0];
-  }
-
-  return null;
-}
-
 function buchheim(tree) {
   var dt = firstwalk(tree);
-  second_walk(dt);
+  var min = second_walk(dt);
+
+  if (min < 0) {
+    third_walk(dt, -min);
+  }
+
   return dt;
+}
+
+function third_walk(tree, n) {
+  tree.x += n;
+  tree.children.forEach(function (c) {
+    third_walk(c, n);
+  });
 }
 
 function firstwalk(v) {
@@ -612,7 +626,7 @@ function firstwalk(v) {
 
   if (v.children.length === 0) {
     if (get_lmost_sibling(v) != null) {
-      v.x = left_brother(v).x + distance;
+      v.x = lbrother(v).x + distance;
     } else {
       v.x = 0.0;
     }
@@ -624,7 +638,7 @@ function firstwalk(v) {
     });
     execute_shifts(v);
     var midpoint = (v.children[0].x + v.children[v.children.length - 1].x) / 2.0;
-    var w = left_brother(v);
+    var w = lbrother(v);
 
     if (w != null) {
       v.x = w.x + distance;
@@ -638,7 +652,7 @@ function firstwalk(v) {
 }
 
 function apportion(v, default_ancestor, distance) {
-  var w = left_brother(v);
+  var w = lbrother(v);
 
   if (w != null) {
     var vir = v;
@@ -649,16 +663,14 @@ function apportion(v, default_ancestor, distance) {
     var sor = v.mod;
     var sil = vil.mod;
     var sol = vol.mod;
-
-    if (right(vil) != null && right(vor) == null) {
-      vor.thread = right(vil);
-    } else {
-      if (left(vir) != null && left(vol) == null) {
-        vol.thread = left(vir);
-      }
-
-      default_ancestor = v;
-    }
+    console.log(vir, vor, vil, vol, sir, sor, sil, sol); // if (right(vil) != null && right(vor) == null) {
+    //     vor.thread = right(vil);
+    // } else {
+    //     if (left(vir) != null && left(vol) == null) {
+    //         vol.thread = left(vir);
+    //     }
+    //     default_ancestor = v;
+    // }
 
     while (right(vil) != null && left(vir) != null) {
       vil = right(vil);
@@ -679,18 +691,18 @@ function apportion(v, default_ancestor, distance) {
       sir += vir.mod;
       sol += vol.mod;
       sor += vor.mod;
+    }
 
-      if (right(vil) != null && right(vor) == null) {
-        vor.thread = right(vil);
-        vor.mod += sil - sor;
-      } else {
-        if (left(vir) != null && left(vol) == null) {
-          vol.thread = left(vir);
-          vol.mod += sir - sol;
-        }
-
-        default_ancestor = v;
+    if (right(vil) != null && right(vor) == null) {
+      vor.thread = right(vil);
+      vor.mod += sil - sor;
+    } else {
+      if (left(vir) != null && left(vol) == null) {
+        vol.thread = left(vir);
+        vol.mod += sir - sol;
       }
+
+      default_ancestor = v;
     }
   }
 
@@ -721,8 +733,10 @@ function execute_shifts(v) {
 
 function ancestor(vil, v, default_ancestor) {
   if (containsObject(vil.ancestor, v.parent.children)) {
+    console.log("VIL ANCESTOR: ", vil.ancestor);
     return vil.ancestor;
   } else {
+    console.log("DEFAULT ANCESTOR: ", default_ancestor);
     return default_ancestor;
   }
 }
@@ -730,15 +744,18 @@ function ancestor(vil, v, default_ancestor) {
 function second_walk(v) {
   var m = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0.0;
   var depth = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0.0;
+  var min = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
   v.x += m;
   v.y = depth;
-  v.children.forEach(function (w) {
-    if (v.mod == null || isNaN(v.mod)) {
-      v.mod = 0.0;
-    }
 
-    second_walk(w, m + v.mod, depth + 1);
+  if (min == null || v.x < min) {
+    min = v.x;
+  }
+
+  v.children.forEach(function (w) {
+    min = second_walk(w, m + v.mod, depth + 1);
   });
+  return min;
 }
 
 function findChildren(node, links) {

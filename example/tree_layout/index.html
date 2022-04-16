@@ -17,7 +17,7 @@
     // Gen random data
     const N = 300;
     let gData = {nodes: [], links: []};
-    generateTreeGraph(0, 5, gData, -1, 'first');
+    generateTreeGraph(0, 6, gData, -1, 'first');
     console.log(gData);
 
 
@@ -68,15 +68,7 @@
             return;
         }
 
-        let numberOfChildren = 0;
-        let rand = Math.random();
-        if (rand < 0.5) {
-            numberOfChildren = 3;
-        } else if (rand < 0.75) {
-            numberOfChildren = 2;
-        } else if (rand < 0.875) {
-            numberOfChildren = 1;
-        }
+        let numberOfChildren = getRandomIntInclusive(0, currentLevel + 1);
 
         let node = {
             id: ++(generateTreeGraph.currentId),
@@ -93,6 +85,12 @@
             let childLabel = Math.random() > 0.5 ? 'first' : 'second';
             generateTreeGraph(currentLevel + 1, maxLevel, graph, node.id, childLabel);
         }
+    }
+
+    function getRandomIntInclusive(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 </script>
 </body>
