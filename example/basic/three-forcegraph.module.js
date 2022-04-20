@@ -490,6 +490,15 @@ function setPositions(tree, shift) {
   tree.tree.y = -tree.y * 50;
   tree.tree.z = 0.0;
 
+  for (var i = 0; i < tree.additionalSiblings.length; i += 2) {
+    tree.additionalSiblings[i].x = tree.tree.x;
+    tree.additionalSiblings[i].y = tree.tree.y;
+    tree.additionalSiblings[i].z = tree.tree.z + (i / 2 + 1) * 10;
+    tree.additionalSiblings[i + 1].x = tree.tree.x;
+    tree.additionalSiblings[i + 1].y = tree.tree.y;
+    tree.additionalSiblings[i + 1].z = tree.tree.z - (i / 2 + 1) * 10;
+  }
+
   if (tree.children.length > 0) {
     tree.children.forEach(function (node) {
       return setPositions(node, shift);
@@ -532,16 +541,26 @@ function findParent(node, links) {
 }
 
 function createTreeLayoutStructure(tree, parent, depth, number, nodes, links) {
+  var additionalSiblings = arguments.length > 6 && arguments[6] !== undefined ? arguments[6] : [];
   var self = {};
-  self.id = tree.id;
   self.x = -1;
   self.y = depth;
   self.tree = tree;
+  self.additionalSiblings = additionalSiblings;
   var currentChildren = findChildren(tree, links);
+  var mainChildren = findMainChildrenNodes(currentChildren);
   self.children = [];
+  var additionalChildren = findAdditionalChildren(currentChildren, mainChildren);
 
-  for (var i = 0; i < currentChildren.length; i++) {
-    self.children.push(createTreeLayoutStructure(currentChildren[i], self, depth + 1, i + 1, nodes, links));
+  var _loop = function _loop(i) {
+    var filteredAdditionalChildren = additionalChildren.filter(function (n) {
+      return n.label === mainChildren[i].label;
+    });
+    self.children.push(createTreeLayoutStructure(mainChildren[i], self, depth + 1, i + 1, nodes, links, filteredAdditionalChildren));
+  };
+
+  for (var i = 0; i < mainChildren.length; i++) {
+    _loop(i);
   }
 
   self.parent = parent;
@@ -766,6 +785,24 @@ function findChildren(node, links) {
     }
   });
   return result;
+}
+
+function findMainChildrenNodes(nodes, links) {
+  var result = [];
+
+  for (var i = 0; i < nodes.length; i++) {
+    if (nodes[i].main) {
+      result.push(nodes[i]);
+    }
+  }
+
+  return result;
+}
+
+function findAdditionalChildren(nodes, mainNodes) {
+  return nodes.filter(function (n) {
+    return !containsObject(n, mainNodes);
+  });
 }
 
 var three$1 = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists

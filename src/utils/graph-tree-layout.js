@@ -17,6 +17,14 @@ function setPositions(tree, shift) {
     tree.tree.x = (tree.x - shift) * 20;
     tree.tree.y = -tree.y * 50;
     tree.tree.z = 0.0;
+    for (let i = 0; i < tree.additionalSiblings.length; i += 2) {
+        tree.additionalSiblings[i].x = tree.tree.x;
+        tree.additionalSiblings[i].y = tree.tree.y;
+        tree.additionalSiblings[i].z = tree.tree.z + ((i / 2 + 1) * 10);
+        tree.additionalSiblings[i + 1].x = tree.tree.x;
+        tree.additionalSiblings[i + 1].y = tree.tree.y;
+        tree.additionalSiblings[i + 1].z = tree.tree.z - ((i / 2 + 1) * 10);
+    }
     if (tree.children.length > 0) {
         tree.children.forEach(node => setPositions(node, shift));
     }
@@ -49,16 +57,19 @@ function findParent(node, links) {
     return null;
 }
 
-function createTreeLayoutStructure(tree, parent, depth, number, nodes, links) {
+function createTreeLayoutStructure(tree, parent, depth, number, nodes, links, additionalSiblings = []) {
     let self = {};
-    self.id = tree.id;
     self.x = -1;
     self.y = depth;
     self.tree = tree;
+    self.additionalSiblings = additionalSiblings;
     let currentChildren = findChildren(tree, links);
+    let mainChildren = findMainChildrenNodes(currentChildren, links);
     self.children = [];
-    for (let i = 0; i < currentChildren.length; i++) {
-        self.children.push(createTreeLayoutStructure(currentChildren[i], self, depth + 1, i + 1, nodes, links))
+    let additionalChildren = findAdditionalChildren(currentChildren, mainChildren);
+    for (let i = 0; i < mainChildren.length; i++) {
+        let filteredAdditionalChildren = additionalChildren.filter(n => n.label === mainChildren[i].label)
+        self.children.push(createTreeLayoutStructure(mainChildren[i], self, depth + 1, i + 1, nodes, links, filteredAdditionalChildren))
     }
     self.parent = parent;
     self.thread = null;
@@ -260,7 +271,29 @@ function findChildren(node, links) {
     return result;
 }
 
+function findMainChildrenNodes(nodes, links) {
+    let result = [];
+    for (let i = 0; i < nodes.length; i++) {
+        if (nodes[i].main) {
+            result.push(nodes[i]);
+        }
+    }
+    return result;
+}
 
+function numberOfSameLabelNodes(nodes, label) {
+    let counter = 0;
+    for (let i = 0; i < nodes.length; i++) {
+        if (label === nodes[i].label) {
+            counter++;
+        }
+    }
+    return counter;
+}
+
+function findAdditionalChildren(nodes, mainNodes) {
+    return nodes.filter(n => !containsObject(n, mainNodes));
+}
 
 
 export {setGraphTreeLayout};
