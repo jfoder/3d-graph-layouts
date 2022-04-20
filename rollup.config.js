@@ -24,6 +24,11 @@ export default [
             },
             {
                 ...umdConf,
+                file: `example/timestamp/${name}.js`,
+                sourcemap: true,
+            },
+            {
+                ...umdConf,
                 file: `example/tree_layout/${name}.js`,
                 sourcemap: true,
             },
@@ -55,6 +60,15 @@ export default [
             },
             {
                 format: 'cjs',
+                file: `example/timestamp/${name}.common.js`,
+                exports: 'auto'
+            },
+            {
+                format: 'es',
+                file: `example/timestamp/${name}.module.js`
+            },
+            {
+                format: 'cjs',
                 file: `example/tree_layout/${name}.common.js`,
                 exports: 'auto'
             },
@@ -73,6 +87,10 @@ export default [
         output: [
             {
                 file: `example/basic/${name}.d.ts`,
+                format: 'es'
+            },
+            {
+                file: `example/timestamp/${name}.d.ts`,
                 format: 'es'
             },
             {

@@ -470,341 +470,6 @@ function getDagDepths (_ref, idAccessor) {
   }
 }
 
-//TODO: https://llimllib.github.io/pymag-trees/
-function setGraphTreeLayout(nodes, links) {
-  var root = findRoot(nodes, links);
-
-  try {
-    var tree = createTreeLayoutStructure(root, null, 0, 1, nodes, links);
-    console.log(tree);
-    tree = buchheim(tree);
-    var shift = tree.x;
-    setPositions(tree, shift);
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-function setPositions(tree, shift) {
-  tree.tree.x = (tree.x - shift) * 20;
-  tree.tree.y = -tree.y * 50;
-  tree.tree.z = 0.0;
-
-  for (var i = 0; i < tree.additionalSiblings.length; i += 2) {
-    tree.additionalSiblings[i].x = tree.tree.x;
-    tree.additionalSiblings[i].y = tree.tree.y;
-    tree.additionalSiblings[i].z = tree.tree.z + (i / 2 + 1) * 10;
-    tree.additionalSiblings[i + 1].x = tree.tree.x;
-    tree.additionalSiblings[i + 1].y = tree.tree.y;
-    tree.additionalSiblings[i + 1].z = tree.tree.z - (i / 2 + 1) * 10;
-  }
-
-  if (tree.children.length > 0) {
-    tree.children.forEach(function (node) {
-      return setPositions(node, shift);
-    });
-  }
-}
-
-function findRoot(nodes, links) {
-  var node = nodes[0];
-
-  while (findParent(node, links) != null) {
-    node = findParent(node, links);
-  }
-
-  return node;
-}
-
-function containsObject(obj, list) {
-  var i;
-
-  for (i = 0; i < list.length; i++) {
-    if (list[i] === obj) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function findParent(node, links) {
-  var link = links.find(function (link) {
-    return link.target.id === node.id;
-  });
-
-  if (link !== undefined) {
-    return link.source;
-  }
-
-  return null;
-}
-
-function createTreeLayoutStructure(tree, parent, depth, number, nodes, links) {
-  var additionalSiblings = arguments.length > 6 && arguments[6] !== undefined ? arguments[6] : [];
-  var self = {};
-  self.x = -1;
-  self.y = depth;
-  self.tree = tree;
-  self.additionalSiblings = additionalSiblings;
-  var currentChildren = findChildren(tree, links);
-  var mainChildren = findMainChildrenNodes(currentChildren);
-  self.children = [];
-  var additionalChildren = findAdditionalChildren(currentChildren, mainChildren);
-
-  var _loop = function _loop(i) {
-    var filteredAdditionalChildren = additionalChildren.filter(function (n) {
-      return n.label === mainChildren[i].label;
-    });
-    self.children.push(createTreeLayoutStructure(mainChildren[i], self, depth + 1, i + 1, nodes, links, filteredAdditionalChildren));
-  };
-
-  for (var i = 0; i < mainChildren.length; i++) {
-    _loop(i);
-  }
-
-  self.parent = parent;
-  self.thread = null;
-  self.mod = 0;
-  self.ancestor = self;
-  self.change = 0;
-  self.shift = 0;
-  self.lmost_sibling = null;
-  self.number = number;
-  return self;
-}
-
-function left(tree) {
-  if (tree.thread != null) {
-    return tree.thread;
-  }
-
-  if (tree.children.length > 0) {
-    return tree.children[0];
-  }
-
-  return null;
-}
-
-function right(tree) {
-  if (tree.thread != null) {
-    return tree.thread;
-  }
-
-  if (tree.children.length > 0) {
-    return tree.children[tree.children.length - 1];
-  }
-
-  return null;
-}
-
-function lbrother(tree) {
-  var n = null;
-
-  if (tree.parent != null) {
-    for (var i = 0; i < tree.parent.children.length; i++) {
-      if (tree.parent.children[i] === tree) {
-        return n;
-      }
-
-      n = tree.parent.children[i];
-    }
-  }
-
-  return n;
-}
-
-function get_lmost_sibling(tree) {
-  if (tree.lmost_sibling == null && tree.parent != null && tree !== tree.parent.children[0]) {
-    tree.lmost_sibling = tree.parent.children[0];
-  }
-
-  return tree.lmost_sibling;
-}
-
-function buchheim(tree) {
-  var dt = firstwalk(tree);
-  var min = second_walk(dt);
-
-  if (min < 0) {
-    third_walk(dt, -min);
-  }
-
-  return dt;
-}
-
-function third_walk(tree, n) {
-  tree.x += n;
-  tree.children.forEach(function (c) {
-    third_walk(c, n);
-  });
-}
-
-function firstwalk(v) {
-  var distance = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 1.0;
-
-  if (v.children.length === 0) {
-    if (get_lmost_sibling(v) != null) {
-      v.x = lbrother(v).x + distance;
-    } else {
-      v.x = 0.0;
-    }
-  } else {
-    var default_ancestor = v.children[0];
-    v.children.forEach(function (w) {
-      firstwalk(w);
-      default_ancestor = apportion(w, default_ancestor, distance);
-    });
-    execute_shifts(v);
-    var midpoint = (v.children[0].x + v.children[v.children.length - 1].x) / 2.0;
-    var w = lbrother(v);
-
-    if (w != null) {
-      v.x = w.x + distance;
-      v.mod = v.x - midpoint;
-    } else {
-      v.x = midpoint;
-    }
-
-    return v;
-  }
-}
-
-function apportion(v, default_ancestor, distance) {
-  var w = lbrother(v);
-
-  if (w != null) {
-    var vir = v;
-    var vor = v;
-    var vil = w;
-    var vol = get_lmost_sibling(v);
-    var sir = v.mod;
-    var sor = v.mod;
-    var sil = vil.mod;
-    var sol = vol.mod;
-    console.log(vir, vor, vil, vol, sir, sor, sil, sol); // if (right(vil) != null && right(vor) == null) {
-    //     vor.thread = right(vil);
-    // } else {
-    //     if (left(vir) != null && left(vol) == null) {
-    //         vol.thread = left(vir);
-    //     }
-    //     default_ancestor = v;
-    // }
-
-    while (right(vil) != null && left(vir) != null) {
-      vil = right(vil);
-      vir = left(vir);
-      vol = left(vol);
-      vor = right(vor);
-      vor.ancestor = v;
-      var shift = vil.x + sil - (vir.x + sir) + distance;
-
-      if (shift > 0) {
-        var a = ancestor(vil, v, default_ancestor);
-        move_subtree(a, v, shift);
-        sir = sir + shift;
-        sor = sor + shift;
-      }
-
-      sil += vil.mod;
-      sir += vir.mod;
-      sol += vol.mod;
-      sor += vor.mod;
-    }
-
-    if (right(vil) != null && right(vor) == null) {
-      vor.thread = right(vil);
-      vor.mod += sil - sor;
-    } else {
-      if (left(vir) != null && left(vol) == null) {
-        vol.thread = left(vir);
-        vol.mod += sir - sol;
-      }
-
-      default_ancestor = v;
-    }
-  }
-
-  return default_ancestor;
-}
-
-function move_subtree(wl, wr, shift) {
-  var subtrees = wr.number - wl.number;
-  wr.change -= shift / subtrees;
-  wr.shift += shift;
-  wl.change += shift / subtrees;
-  wr.x += shift;
-  wr.mod += shift;
-}
-
-function execute_shifts(v) {
-  var shift = 0.0;
-  var change = 0.0;
-
-  for (var i = v.children.length - 1; i >= 0; i--) {
-    var w = v.children[i];
-    w.x += shift;
-    w.mod += shift;
-    change += w.change;
-    shift += w.shift + change;
-  }
-}
-
-function ancestor(vil, v, default_ancestor) {
-  if (containsObject(vil.ancestor, v.parent.children)) {
-    console.log("VIL ANCESTOR: ", vil.ancestor);
-    return vil.ancestor;
-  } else {
-    console.log("DEFAULT ANCESTOR: ", default_ancestor);
-    return default_ancestor;
-  }
-}
-
-function second_walk(v) {
-  var m = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0.0;
-  var depth = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0.0;
-  var min = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : null;
-  v.x += m;
-  v.y = depth;
-
-  if (min == null || v.x < min) {
-    min = v.x;
-  }
-
-  v.children.forEach(function (w) {
-    min = second_walk(w, m + v.mod, depth + 1);
-  });
-  return min;
-}
-
-function findChildren(node, links) {
-  var result = [];
-  links.forEach(function (link) {
-    if (link.source.id === node.id) {
-      result.push(link.target);
-    }
-  });
-  return result;
-}
-
-function findMainChildrenNodes(nodes, links) {
-  var result = [];
-
-  for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].main) {
-      result.push(nodes[i]);
-    }
-  }
-
-  return result;
-}
-
-function findAdditionalChildren(nodes, mainNodes) {
-  return nodes.filter(function (n) {
-    return !containsObject(n, mainNodes);
-  });
-}
-
 var three$1 = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists
 : {
   Group: Group,
@@ -866,16 +531,12 @@ var ForceGraph = Kapsule({
       }
     },
     numDimensions: {
-      "default": 3,
+      "default": 2,
       onChange: function onChange(numDim, state) {
         var chargeForce = state.d3ForceLayout.force('charge'); // Increase repulsion on 3D mode for improved spatial separation
 
         if (chargeForce) {
           chargeForce.strength(numDim > 2 ? -60 : -30);
-        }
-
-        if (numDim < 3) {
-          eraseDimension(state.graphData.nodes, 'z');
         }
 
         if (numDim < 2) {
@@ -1015,7 +676,7 @@ var ForceGraph = Kapsule({
       "default": 0
     },
     d3AlphaDecay: {
-      "default": 0.0228,
+      "default": 0.00228,
       triggerUpdate: false,
       onChange: function onChange(alphaDecay, state) {
         state.d3ForceLayout.alphaDecay(alphaDecay);
@@ -1132,11 +793,11 @@ var ForceGraph = Kapsule({
 
           state.onEngineStop();
         } else {
-          setGraphTreeLayout(state.graphData.nodes, state.graphData.links); // state.layout[isD3Sim ? 'tick' : 'step'](); // Tick it
-          // state.onEngineTick();
+          // setGraphTreeLayout(state.graphData.nodes, state.graphData.links);
+          state.layout[isD3Sim ? 'tick' : 'step'](); // Tick it
 
-          state.engineRunning = false;
-          state.onEngineStop();
+          state.onEngineTick(); // state.engineRunning = false;
+          // state.onEngineStop();
         } // Update nodes position
 
 
@@ -1852,14 +1513,14 @@ var ForceGraph = Kapsule({
       if (isD3Sim) {
         // D3-force
         (layout = state.d3ForceLayout).stop().alpha(1) // re-heat the simulation
-        .numDimensions(state.numDimensions).nodes(state.graphData.nodes); // add links (if link force is still active)
+        .numDimensions(state.numDimensions).nodes(getFirstLayer(state.graphData.nodes)); // add links (if link force is still active)
 
         var linkForce = state.d3ForceLayout.force('link');
 
         if (linkForce) {
           linkForce.id(function (d) {
             return d[state.nodeId];
-          }).links(state.graphData.links);
+          }).links(getFirstLayer(state.graphData.links));
         } // setup dag force constraints
 
 
@@ -1926,6 +1587,19 @@ var ForceGraph = Kapsule({
     state.onFinishUpdate();
   }
 });
+
+function getFirstLayer(nodes) {
+  var result = [];
+
+  for (var i = 0; i < nodes.length; i++) {
+    if (nodes[i].timestamp === 0) {
+      result.push(nodes[i]);
+    }
+  }
+
+  console.log("FIRST LAYER SIZE: ", result.length);
+  return result;
+}
 
 function fromKapsule (kapsule) {
   var baseClass = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : Object;

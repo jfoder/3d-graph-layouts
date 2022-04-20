@@ -101,7 +101,7 @@ export default Kapsule({
             }
         },
         numDimensions: {
-            default: 3,
+            default: 2,
             onChange(numDim, state) {
                 const chargeForce = state.d3ForceLayout.force('charge');
                 // Increase repulsion on 3D mode for improved spatial separation
@@ -110,7 +110,7 @@ export default Kapsule({
                 }
 
                 if (numDim < 3) {
-                    eraseDimension(state.graphData.nodes, 'z');
+                    // eraseDimension(state.graphData.nodes, 'z');
                 }
                 if (numDim < 2) {
                     eraseDimension(state.graphData.nodes, 'y');
@@ -168,7 +168,7 @@ export default Kapsule({
         forceEngine: {default: 'd3'}, // d3 or ngraph
         d3AlphaMin: {default: 0},
         d3AlphaDecay: {
-            default: 0.0228, triggerUpdate: false, onChange(alphaDecay, state) {
+            default: 0.00228, triggerUpdate: false, onChange(alphaDecay, state) {
                 state.d3ForceLayout.alphaDecay(alphaDecay)
             }
         },
@@ -270,11 +270,11 @@ export default Kapsule({
                     state.engineRunning = false; // Stop ticking graph
                     state.onEngineStop();
                 } else {
-                    setGraphTreeLayout(state.graphData.nodes, state.graphData.links);
-                    // state.layout[isD3Sim ? 'tick' : 'step'](); // Tick it
-                    // state.onEngineTick();
-                    state.engineRunning = false;
-                    state.onEngineStop();
+                    // setGraphTreeLayout(state.graphData.nodes, state.graphData.links);
+                    state.layout[isD3Sim ? 'tick' : 'step'](); // Tick it
+                    state.onEngineTick();
+                    // state.engineRunning = false;
+                    // state.onEngineStop();
                 }
 
                 // Update nodes position
@@ -1069,14 +1069,14 @@ export default Kapsule({
                     .stop()
                     .alpha(1)// re-heat the simulation
                     .numDimensions(state.numDimensions)
-                    .nodes(state.graphData.nodes);
+                    .nodes(getFirstLayer(state.graphData.nodes));
 
                 // add links (if link force is still active)
                 const linkForce = state.d3ForceLayout.force('link');
                 if (linkForce) {
                     linkForce
                         .id(d => d[state.nodeId])
-                        .links(state.graphData.links);
+                        .links(getFirstLayer(state.graphData.links));
                 }
 
                 // setup dag force constraints
@@ -1151,3 +1151,14 @@ export default Kapsule({
         state.onFinishUpdate();
     }
 });
+
+function getFirstLayer(nodes) {
+    let result = [];
+    for (let i = 0; i < nodes.length; i++) {
+        if (nodes[i].timestamp === 0) {
+            result.push(nodes[i]);
+        }
+    }
+    console.log("FIRST LAYER SIZE: ", result.length);
+    return result;
+}
