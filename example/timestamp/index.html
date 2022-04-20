@@ -13,7 +13,7 @@
 
 <script>
     // Gen random data
-    const N = 300;
+    const N = 25;
     const gData = {
         nodes: [...Array(N).keys()].map(i => ({ id: i, timestamp: 0, neighbours: [], history: []})),
         links: [...Array(N).keys()]
@@ -30,15 +30,17 @@
     let numberOfNodes = gData.nodes.length;
     for (let i = 0; i < numberOfNodes; i++) {
         for (let j = 1; j <= 5; j++) {
-            console.log(i, j);
-            let nodeId = i * 10000 + j;
-            let node = {id : nodeId, timestamp: 0, neighbours: [], history: []};
+            let nodeId = (i + 1) * 10000 + j;
+            let node = {id : nodeId, timestamp: j, neighbours: [], history: []};
             gData.nodes.push(node);
             gData.nodes[i].history.push(node);
         }
     }
-    console.log(gData.nodes.length)
-    // gData.nodes[5].timestamp = 1;
+    gData.links.push({source: getNodeWithId(10001), target: getNodeWithId(20001), timestamp: 1});
+
+    function getNodeWithId(id) {
+        return gData.nodes.filter(node => node.id === id)[0];
+    }
     console.log(gData);
 
     const Graph = new ThreeForceGraph()

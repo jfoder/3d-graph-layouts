@@ -279,7 +279,9 @@ export default Kapsule({
 
                 // Update nodes position
                 state.graphData.nodes.forEach(node => {
-                    // console.log(node);
+                    if (node.timestamp !== 0) {
+                        return;
+                    }
                     const obj = node.__threeObj;
                     if (!obj) return;
 
@@ -287,7 +289,19 @@ export default Kapsule({
 
                     obj.position.x = pos.x;
                     obj.position.y = pos.y || 0;
-                    obj.position.z = pos.z || 0;
+                    obj.position.z = 0;
+                    for (let i = 0; i < node.history.length; i++) {
+                        let historyNode = node.history[i];
+                        historyNode.vx = node.vx;
+                        historyNode.vy = node.vy;
+                        historyNode.x = node.x;
+                        historyNode.y = node.y;
+                        historyNode.z = -((i + 1) * 20);
+                        let historyObj = historyNode.__threeObj;
+                        historyObj.position.x = pos.x;
+                        historyObj.position.y = pos.y || 0;
+                        historyObj.position.z = -((i + 1) * 20);
+                    }
                 });
 
                 // Update links position
@@ -296,16 +310,23 @@ export default Kapsule({
                 const linkCurveRotationAccessor = accessorFn(state.linkCurveRotation);
                 const linkThreeObjectExtendAccessor = accessorFn(state.linkThreeObjectExtend);
                 state.graphData.links.forEach(link => {
+                    let isDesiredLink = (link.source.id === 10001 && link.target.id === 20001);
                     const lineObj = link.__lineObj;
-                    if (!lineObj) return;
+                    if (!lineObj) {
+                        return;
+                    }
 
                     const pos = isD3Sim
                         ? link
                         : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
                     const start = pos[isD3Sim ? 'source' : 'from'];
                     const end = pos[isD3Sim ? 'target' : 'to'];
+                    if (isDesiredLink) {
+                        console.log(start, end);
+                    }
 
                     if (!start || !end || !start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
+
 
                     calcLinkCurve(link); // calculate link curve for all links, including custom replaced, so it can be used in directional functionality
 
@@ -340,6 +361,9 @@ export default Kapsule({
                             linePos.array[5] = end.z || 0;
 
                             linePos.needsUpdate = true;
+                            if (isDesiredLink) {
+                                console.log("GIT4", linePos, start, end);
+                            }
 
                         } else { // bezier curve line
                             line.geometry.setFromPoints(curve.getPoints(curveResolution));
@@ -675,6 +699,7 @@ export default Kapsule({
             const valAccessor = accessorFn(state.nodeVal);
             const colorAccessor = accessorFn(state.nodeColor);
             const visibilityAccessor = accessorFn(state.nodeVisibility);
+            console.log(state.graphData.nodes.filter(visibilityAccessor));
 
             const sphereGeometries = {}; // indexed by node value
             const sphereMaterials = {}; // indexed by color
