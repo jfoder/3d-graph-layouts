@@ -843,7 +843,7 @@ var ForceGraph = Kapsule__default["default"]({
         var linkCurveRotationAccessor = accessorFn__default["default"](state.linkCurveRotation);
         var linkThreeObjectExtendAccessor = accessorFn__default["default"](state.linkThreeObjectExtend);
         state.graphData.links.forEach(function (link) {
-          var isDesiredLink = link.source.id === 10001 && link.target.id === 20001;
+          link.source.id === 10001 && link.target.id === 20001;
           var lineObj = link.__lineObj;
 
           if (!lineObj) {
@@ -853,11 +853,6 @@ var ForceGraph = Kapsule__default["default"]({
           var pos = isD3Sim ? link : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
           var start = pos[isD3Sim ? 'source' : 'from'];
           var end = pos[isD3Sim ? 'target' : 'to'];
-
-          if (isDesiredLink) {
-            console.log(start, end);
-          }
-
           if (!start || !end || !start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
 
           calcLinkCurve(link); // calculate link curve for all links, including custom replaced, so it can be used in directional functionality
@@ -904,10 +899,6 @@ var ForceGraph = Kapsule__default["default"]({
               linePos.array[4] = end.y || 0;
               linePos.array[5] = end.z || 0;
               linePos.needsUpdate = true;
-
-              if (isDesiredLink) {
-                console.log("GIT4", linePos, start, end);
-              }
             } else {
               // bezier curve line
               line.geometry.setFromPoints(curve.getPoints(curveResolution));
@@ -1212,7 +1203,6 @@ var ForceGraph = Kapsule__default["default"]({
       var valAccessor = accessorFn__default["default"](state.nodeVal);
       var colorAccessor = accessorFn__default["default"](state.nodeColor);
       var visibilityAccessor = accessorFn__default["default"](state.nodeVisibility);
-      console.log(state.graphData.nodes.filter(visibilityAccessor));
       var sphereGeometries = {}; // indexed by node value
 
       var sphereMaterials = {}; // indexed by color
@@ -1268,7 +1258,7 @@ var ForceGraph = Kapsule__default["default"]({
 
             var color = colorAccessor(node);
             var materialColor = new three$1.Color(colorStr2Hex(color || '#ffffaa'));
-            var opacity = state.nodeOpacity * colorAlpha(color);
+            var opacity = node.opacity * colorAlpha(color);
 
             if (obj.material.type !== 'MeshLambertMaterial' || !obj.material.color.equals(materialColor) || obj.material.opacity !== opacity) {
               if (!sphereMaterials.hasOwnProperty(color)) {
@@ -1299,6 +1289,7 @@ var ForceGraph = Kapsule__default["default"]({
 
       var _colorAccessor = accessorFn__default["default"](state.linkColor);
 
+      accessorFn__default["default"](state.linkOpacity);
       var widthAccessor = accessorFn__default["default"](state.linkWidth);
       var cylinderGeometries = {}; // indexed by link width
 
@@ -1398,7 +1389,7 @@ var ForceGraph = Kapsule__default["default"]({
               var color = _colorAccessor(link);
 
               var materialColor = new three$1.Color(colorStr2Hex(color || '#f0f0f0'));
-              var opacity = state.linkOpacity * colorAlpha(color);
+              var opacity = link.opacity * colorAlpha(color);
               var materialType = useCylinder ? 'MeshLambertMaterial' : 'LineBasicMaterial';
 
               if (obj.material.type !== materialType || !obj.material.color.equals(materialColor) || obj.material.opacity !== opacity) {
@@ -1639,7 +1630,6 @@ function getFirstLayer(nodes) {
     }
   }
 
-  console.log("FIRST LAYER SIZE: ", result.length);
   return result;
 }
 

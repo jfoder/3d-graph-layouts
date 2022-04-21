@@ -321,9 +321,6 @@ export default Kapsule({
                         : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
                     const start = pos[isD3Sim ? 'source' : 'from'];
                     const end = pos[isD3Sim ? 'target' : 'to'];
-                    if (isDesiredLink) {
-                        console.log(start, end);
-                    }
 
                     if (!start || !end || !start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
 
@@ -361,9 +358,6 @@ export default Kapsule({
                             linePos.array[5] = end.z || 0;
 
                             linePos.needsUpdate = true;
-                            if (isDesiredLink) {
-                                console.log("GIT4", linePos, start, end);
-                            }
 
                         } else { // bezier curve line
                             line.geometry.setFromPoints(curve.getPoints(curveResolution));
@@ -699,7 +693,6 @@ export default Kapsule({
             const valAccessor = accessorFn(state.nodeVal);
             const colorAccessor = accessorFn(state.nodeColor);
             const visibilityAccessor = accessorFn(state.nodeVisibility);
-            console.log(state.graphData.nodes.filter(visibilityAccessor));
 
             const sphereGeometries = {}; // indexed by node value
             const sphereMaterials = {}; // indexed by color
@@ -760,7 +753,7 @@ export default Kapsule({
 
                             const color = colorAccessor(node);
                             const materialColor = new three.Color(colorStr2Hex(color || '#ffffaa'));
-                            const opacity = state.nodeOpacity * colorAlpha(color);
+                            const opacity = node.opacity * colorAlpha(color);
 
                             if (obj.material.type !== 'MeshLambertMaterial'
                                 || !obj.material.color.equals(materialColor)
@@ -807,6 +800,7 @@ export default Kapsule({
             const customMaterialAccessor = accessorFn(state.linkMaterial);
             const visibilityAccessor = accessorFn(state.linkVisibility);
             const colorAccessor = accessorFn(state.linkColor);
+            const opacityAccessor = accessorFn(state.linkOpacity);
             const widthAccessor = accessorFn(state.linkWidth);
 
             const cylinderGeometries = {}; // indexed by link width
@@ -911,7 +905,7 @@ export default Kapsule({
                             } else {
                                 const color = colorAccessor(link);
                                 const materialColor = new three.Color(colorStr2Hex(color || '#f0f0f0'));
-                                const opacity = state.linkOpacity * colorAlpha(color);
+                                const opacity = link.opacity * colorAlpha(color);
 
                                 const materialType = useCylinder ? 'MeshLambertMaterial' : 'LineBasicMaterial';
                                 if (obj.material.type !== materialType
@@ -1184,6 +1178,5 @@ function getFirstLayer(nodes) {
             result.push(nodes[i]);
         }
     }
-    console.log("FIRST LAYER SIZE: ", result.length);
     return result;
 }

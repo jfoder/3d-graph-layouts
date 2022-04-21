@@ -1,5 +1,7 @@
 <head>
-    <style> body { margin: 0; } </style>
+    <style> body {
+        margin: 0;
+    } </style>
 
     <script src="https://unpkg.com/three@0.136.0/build/three.js"></script>
     <script src="https://unpkg.com/three@0.136.0/examples/js/controls/TrackballControls.js"></script>
@@ -13,15 +15,28 @@
 
 <script>
     // Gen random data
-    const N = 25;
+    let failureLinkOpacity = 0.5;
+    let failureNodeOpacity = 0.85;
+    const N = 30;
+    let numberOfHistoryNodes = 15;
     const gData = {
-        nodes: [...Array(N).keys()].map(i => ({ id: i, timestamp: 0, neighbours: [], history: []})),
+        nodes: [...Array(N).keys()].map(i => ({
+            id: i,
+            timestamp: 0,
+            neighbours: [],
+            history: [],
+            color: "#81c95f",
+            opacity: 0.75
+        })),
         links: [...Array(N).keys()]
             .filter(id => id)
             .map(id => ({
                 source: id,
-                target: Math.round(Math.random() * (id-1)),
-                timestamp: 0
+                target: Math.round(Math.random() * (id - 1)),
+                active: true,
+                color: "#81c95f",
+                timestamp: 0,
+                opacity: 0.2
             }))
     };
     gData.links.forEach(link => {
@@ -29,21 +44,53 @@
     })
     let numberOfNodes = gData.nodes.length;
     for (let i = 0; i < numberOfNodes; i++) {
-        for (let j = 1; j <= 5; j++) {
+        let failureMultiplier = 1.0
+        for (let j = 1; j <= numberOfHistoryNodes; j++) {
             let nodeId = (i + 1) * 10000 + j;
-            let node = {id : nodeId, timestamp: j, neighbours: [], history: []};
+            let isActive = Math.random() < 0.99 * failureMultiplier;
+            if (!isActive) {
+                failureMultiplier *= 0.9;
+            }
+            let node = {
+                id: nodeId,
+                timestamp: j,
+                neighbours: [],
+                history: [],
+                active: isActive,
+                color: isActive ? "#81c95f" : "#FF0000",
+                opacity: isActive ? 0.75 : failureNodeOpacity
+            };
             gData.nodes.push(node);
             gData.nodes[i].history.push(node);
         }
     }
-    gData.links.push({source: getNodeWithId(10001), target: getNodeWithId(20001), timestamp: 1});
+    for (let i = 0; i < numberOfNodes; i++) {
+        for (let j = 1; j <= numberOfHistoryNodes; j++) {
+            let nodeId = (i + 1) * 10000 + j;
+            for (let k = 0; k < gData.nodes[i].neighbours.length; k++) {
+                let sourceNode = getNodeWithId(nodeId);
+                let targetNode = getNodeWithId((gData.nodes[i].neighbours[k] + 1) * 10000 + j)
+                gData.links.push({
+                    source: sourceNode,
+                    target: targetNode,
+                    timestamp: j,
+                    active: sourceNode.active,
+                    color: sourceNode.active ? "#81c95f" : "#FF0000",
+                    opacity: failureLinkOpacity
+                })
+            }
+        }
+    }
 
     function getNodeWithId(id) {
         return gData.nodes.filter(node => node.id === id)[0];
     }
+
     console.log(gData);
 
     const Graph = new ThreeForceGraph()
+        .linkOpacity(0.25)
+        .linkWidth(2)
         .graphData(gData);
     Graph.numDimensions(2)
 
@@ -60,7 +107,7 @@
     // Setup camera
     const camera = new THREE.PerspectiveCamera();
     camera.far = 10000;
-    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     camera.lookAt(Graph.position);
     camera.position.z = Math.cbrt(N) * 180;
