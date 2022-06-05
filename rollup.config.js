@@ -32,6 +32,11 @@ export default [
                 file: `example/tree_layout/${name}.js`,
                 sourcemap: true,
             },
+            {
+                ...umdConf,
+                file: `example/sphere/${name}.js`,
+                sourcemap: true,
+            },
             { // minify
                 ...umdConf,
                 file: `example/basic/${name}.js`,
@@ -69,6 +74,15 @@ export default [
             },
             {
                 format: 'cjs',
+                file: `example/sphere/${name}.common.js`,
+                exports: 'auto'
+            },
+            {
+                format: 'es',
+                file: `example/sphere/${name}.module.js`
+            },
+            {
+                format: 'cjs',
                 file: `example/tree_layout/${name}.common.js`,
                 exports: 'auto'
             },
@@ -91,6 +105,10 @@ export default [
             },
             {
                 file: `example/timestamp/${name}.d.ts`,
+                format: 'es'
+            },
+            {
+                file: `example/sphere/${name}.d.ts`,
                 format: 'es'
             },
             {

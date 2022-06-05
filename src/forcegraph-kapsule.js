@@ -62,7 +62,6 @@ import threeDigest from './utils/three-digest';
 import {emptyObject} from './utils/three-gc';
 import {autoColorObjects, colorStr2Hex, colorAlpha} from './utils/color-utils';
 import getDagDepths from './utils/dagDepths';
-import {setGraphTreeLayout} from "./utils/graph-tree-layout";
 
 //
 
@@ -101,7 +100,7 @@ export default Kapsule({
             }
         },
         numDimensions: {
-            default: 2,
+            default: 3,
             onChange(numDim, state) {
                 const chargeForce = state.d3ForceLayout.force('charge');
                 // Increase repulsion on 3D mode for improved spatial separation
@@ -110,7 +109,7 @@ export default Kapsule({
                 }
 
                 if (numDim < 3) {
-                    // eraseDimension(state.graphData.nodes, 'z');
+                    eraseDimension(state.graphData.nodes, 'z');
                 }
                 if (numDim < 2) {
                     eraseDimension(state.graphData.nodes, 'y');
@@ -178,7 +177,7 @@ export default Kapsule({
             }
         },
         d3VelocityDecay: {
-            default: 0.4, triggerUpdate: false, onChange(velocityDecay, state) {
+            default: 0.2, triggerUpdate: false, onChange(velocityDecay, state) {
                 state.d3ForceLayout.velocityDecay(velocityDecay)
             }
         },
@@ -270,7 +269,6 @@ export default Kapsule({
                     state.engineRunning = false; // Stop ticking graph
                     state.onEngineStop();
                 } else {
-                    // setGraphTreeLayout(state.graphData.nodes, state.graphData.links);
                     state.layout[isD3Sim ? 'tick' : 'step'](); // Tick it
                     state.onEngineTick();
                     // state.engineRunning = false;
@@ -279,29 +277,24 @@ export default Kapsule({
 
                 // Update nodes position
                 state.graphData.nodes.forEach(node => {
-                    if (node.timestamp !== 0) {
-                        return;
-                    }
+                    // console.log(node);
                     const obj = node.__threeObj;
                     if (!obj) return;
 
                     const pos = isD3Sim ? node : state.layout.getNodePosition(node[state.nodeId]);
 
+                    let distance = Math.sqrt((pos.x * pos.x) + (pos.y * pos.y) + (pos.z * pos.z));
+                    let desiredDistance = node.level * 80.0;
+                    let multiplier = node.level === 0 ? 0.0 : desiredDistance / distance;
+                    pos.x *= multiplier;
+                    pos.y *= multiplier;
+                    pos.z *= multiplier;
+                    // console.log(distance);
+                    // console.log(desiredDistance)
+
                     obj.position.x = pos.x;
                     obj.position.y = pos.y || 0;
-                    obj.position.z = 0;
-                    for (let i = 0; i < node.history.length; i++) {
-                        let historyNode = node.history[i];
-                        historyNode.vx = node.vx;
-                        historyNode.vy = node.vy;
-                        historyNode.x = node.x;
-                        historyNode.y = node.y;
-                        historyNode.z = -((i + 1) * 20);
-                        let historyObj = historyNode.__threeObj;
-                        historyObj.position.x = pos.x;
-                        historyObj.position.y = pos.y || 0;
-                        historyObj.position.z = -((i + 1) * 20);
-                    }
+                    obj.position.z = pos.z || 0;
                 });
 
                 // Update links position
@@ -310,11 +303,8 @@ export default Kapsule({
                 const linkCurveRotationAccessor = accessorFn(state.linkCurveRotation);
                 const linkThreeObjectExtendAccessor = accessorFn(state.linkThreeObjectExtend);
                 state.graphData.links.forEach(link => {
-                    let isDesiredLink = (link.source.id === 10001 && link.target.id === 20001);
                     const lineObj = link.__lineObj;
-                    if (!lineObj) {
-                        return;
-                    }
+                    if (!lineObj) return;
 
                     const pos = isD3Sim
                         ? link
@@ -323,7 +313,6 @@ export default Kapsule({
                     const end = pos[isD3Sim ? 'target' : 'to'];
 
                     if (!start || !end || !start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
-
 
                     calcLinkCurve(link); // calculate link curve for all links, including custom replaced, so it can be used in directional functionality
 
@@ -411,7 +400,6 @@ export default Kapsule({
                 });
 
                 //
-
 
                 function calcLinkCurve(link) {
                     const pos = isD3Sim
@@ -753,7 +741,7 @@ export default Kapsule({
 
                             const color = colorAccessor(node);
                             const materialColor = new three.Color(colorStr2Hex(color || '#ffffaa'));
-                            const opacity = node.opacity * colorAlpha(color);
+                            const opacity = state.nodeOpacity * colorAlpha(color);
 
                             if (obj.material.type !== 'MeshLambertMaterial'
                                 || !obj.material.color.equals(materialColor)
@@ -800,7 +788,6 @@ export default Kapsule({
             const customMaterialAccessor = accessorFn(state.linkMaterial);
             const visibilityAccessor = accessorFn(state.linkVisibility);
             const colorAccessor = accessorFn(state.linkColor);
-            const opacityAccessor = accessorFn(state.linkOpacity);
             const widthAccessor = accessorFn(state.linkWidth);
 
             const cylinderGeometries = {}; // indexed by link width
@@ -905,7 +892,7 @@ export default Kapsule({
                             } else {
                                 const color = colorAccessor(link);
                                 const materialColor = new three.Color(colorStr2Hex(color || '#f0f0f0'));
-                                const opacity = link.opacity * colorAlpha(color);
+                                const opacity = state.linkOpacity * colorAlpha(color);
 
                                 const materialType = useCylinder ? 'MeshLambertMaterial' : 'LineBasicMaterial';
                                 if (obj.material.type !== materialType
@@ -1088,14 +1075,14 @@ export default Kapsule({
                     .stop()
                     .alpha(1)// re-heat the simulation
                     .numDimensions(state.numDimensions)
-                    .nodes(getFirstLayer(state.graphData.nodes));
+                    .nodes(state.graphData.nodes);
 
                 // add links (if link force is still active)
                 const linkForce = state.d3ForceLayout.force('link');
                 if (linkForce) {
                     linkForce
                         .id(d => d[state.nodeId])
-                        .links(getFirstLayer(state.graphData.links));
+                        .links(state.graphData.links);
                 }
 
                 // setup dag force constraints
@@ -1170,13 +1157,3 @@ export default Kapsule({
         state.onFinishUpdate();
     }
 });
-
-function getFirstLayer(nodes) {
-    let result = [];
-    for (let i = 0; i < nodes.length; i++) {
-        if (nodes[i].timestamp === 0) {
-            result.push(nodes[i]);
-        }
-    }
-    return result;
-}

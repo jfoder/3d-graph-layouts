@@ -542,12 +542,16 @@ var ForceGraph = Kapsule__default["default"]({
       }
     },
     numDimensions: {
-      "default": 2,
+      "default": 3,
       onChange: function onChange(numDim, state) {
         var chargeForce = state.d3ForceLayout.force('charge'); // Increase repulsion on 3D mode for improved spatial separation
 
         if (chargeForce) {
           chargeForce.strength(numDim > 2 ? -60 : -30);
+        }
+
+        if (numDim < 3) {
+          eraseDimension(state.graphData.nodes, 'z');
         }
 
         if (numDim < 2) {
@@ -701,7 +705,7 @@ var ForceGraph = Kapsule__default["default"]({
       }
     },
     d3VelocityDecay: {
-      "default": 0.4,
+      "default": 0.2,
       triggerUpdate: false,
       onChange: function onChange(velocityDecay, state) {
         state.d3ForceLayout.velocityDecay(velocityDecay);
@@ -804,7 +808,6 @@ var ForceGraph = Kapsule__default["default"]({
 
           state.onEngineStop();
         } else {
-          // setGraphTreeLayout(state.graphData.nodes, state.graphData.links);
           state.layout[isD3Sim ? 'tick' : 'step'](); // Tick it
 
           state.onEngineTick(); // state.engineRunning = false;
@@ -813,29 +816,21 @@ var ForceGraph = Kapsule__default["default"]({
 
 
         state.graphData.nodes.forEach(function (node) {
-          if (node.timestamp !== 0) {
-            return;
-          }
-
+          // console.log(node);
           var obj = node.__threeObj;
           if (!obj) return;
           var pos = isD3Sim ? node : state.layout.getNodePosition(node[state.nodeId]);
+          var distance = Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z);
+          var desiredDistance = node.level * 80.0;
+          var multiplier = node.level === 0 ? 0.0 : desiredDistance / distance;
+          pos.x *= multiplier;
+          pos.y *= multiplier;
+          pos.z *= multiplier; // console.log(distance);
+          // console.log(desiredDistance)
+
           obj.position.x = pos.x;
           obj.position.y = pos.y || 0;
-          obj.position.z = 0;
-
-          for (var i = 0; i < node.history.length; i++) {
-            var historyNode = node.history[i];
-            historyNode.vx = node.vx;
-            historyNode.vy = node.vy;
-            historyNode.x = node.x;
-            historyNode.y = node.y;
-            historyNode.z = -((i + 1) * 20);
-            var historyObj = historyNode.__threeObj;
-            historyObj.position.x = pos.x;
-            historyObj.position.y = pos.y || 0;
-            historyObj.position.z = -((i + 1) * 20);
-          }
+          obj.position.z = pos.z || 0;
         }); // Update links position
 
         var linkWidthAccessor = accessorFn__default["default"](state.linkWidth);
@@ -843,13 +838,8 @@ var ForceGraph = Kapsule__default["default"]({
         var linkCurveRotationAccessor = accessorFn__default["default"](state.linkCurveRotation);
         var linkThreeObjectExtendAccessor = accessorFn__default["default"](state.linkThreeObjectExtend);
         state.graphData.links.forEach(function (link) {
-          link.source.id === 10001 && link.target.id === 20001;
           var lineObj = link.__lineObj;
-
-          if (!lineObj) {
-            return;
-          }
-
+          if (!lineObj) return;
           var pos = isD3Sim ? link : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
           var start = pos[isD3Sim ? 'source' : 'from'];
           var end = pos[isD3Sim ? 'target' : 'to'];
@@ -1258,7 +1248,7 @@ var ForceGraph = Kapsule__default["default"]({
 
             var color = colorAccessor(node);
             var materialColor = new three$1.Color(colorStr2Hex(color || '#ffffaa'));
-            var opacity = node.opacity * colorAlpha(color);
+            var opacity = state.nodeOpacity * colorAlpha(color);
 
             if (obj.material.type !== 'MeshLambertMaterial' || !obj.material.color.equals(materialColor) || obj.material.opacity !== opacity) {
               if (!sphereMaterials.hasOwnProperty(color)) {
@@ -1289,7 +1279,6 @@ var ForceGraph = Kapsule__default["default"]({
 
       var _colorAccessor = accessorFn__default["default"](state.linkColor);
 
-      accessorFn__default["default"](state.linkOpacity);
       var widthAccessor = accessorFn__default["default"](state.linkWidth);
       var cylinderGeometries = {}; // indexed by link width
 
@@ -1389,7 +1378,7 @@ var ForceGraph = Kapsule__default["default"]({
               var color = _colorAccessor(link);
 
               var materialColor = new three$1.Color(colorStr2Hex(color || '#f0f0f0'));
-              var opacity = link.opacity * colorAlpha(color);
+              var opacity = state.linkOpacity * colorAlpha(color);
               var materialType = useCylinder ? 'MeshLambertMaterial' : 'LineBasicMaterial';
 
               if (obj.material.type !== materialType || !obj.material.color.equals(materialColor) || obj.material.opacity !== opacity) {
@@ -1546,14 +1535,14 @@ var ForceGraph = Kapsule__default["default"]({
       if (isD3Sim) {
         // D3-force
         (layout = state.d3ForceLayout).stop().alpha(1) // re-heat the simulation
-        .numDimensions(state.numDimensions).nodes(getFirstLayer(state.graphData.nodes)); // add links (if link force is still active)
+        .numDimensions(state.numDimensions).nodes(state.graphData.nodes); // add links (if link force is still active)
 
         var linkForce = state.d3ForceLayout.force('link');
 
         if (linkForce) {
           linkForce.id(function (d) {
             return d[state.nodeId];
-          }).links(getFirstLayer(state.graphData.links));
+          }).links(state.graphData.links);
         } // setup dag force constraints
 
 
@@ -1620,18 +1609,6 @@ var ForceGraph = Kapsule__default["default"]({
     state.onFinishUpdate();
   }
 });
-
-function getFirstLayer(nodes) {
-  var result = [];
-
-  for (var i = 0; i < nodes.length; i++) {
-    if (nodes[i].timestamp === 0) {
-      result.push(nodes[i]);
-    }
-  }
-
-  return result;
-}
 
 function fromKapsule (kapsule) {
   var baseClass = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : Object;
